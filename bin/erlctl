@@ -1,0 +1,7 @@
+#!/bin/sh
+exec erl \
+  -noshell \
+  -mode interactive \
+  -run erlctl_cli run_command "$0" \
+  -run erlctl_cli halt_with_error \
+  -extra "$@"
