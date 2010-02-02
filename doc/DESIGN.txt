@@ -79,17 +79,43 @@ three arguments: Context, Config, and Args.
 When a command is executed, an Erlang node starts in the CLI command and there
 may also be an Erlang node already running for that application.
 
-Initially, a search is done for a node.  If it is found, the command is
-executed first, in that node, with the context 'running'.  If no node is
-found, a new one is started (detached, with no shell, daemonized), and this
-function is executed in it with the context 'start'.  If the function exits
-with the atom 'started', then the VM continues running.  If no function clause
-matches 'start', then a function is called in the CLI VM with context 'none'.
-This allows easily creating functions as appropriate for running without a
-daemon, starting a daemon, and running inside of a daemon.
+The correct command is executed based on the context and the system state.
+If you provide the correct commands, most use-cases should be manageable.
+For commands that should always just be executed in the CLI process, the
+'none' context is provided.  For commands that should be executed in a running
+server context, the 'running' context is there.  To provide fallback behavior 
+for commands in the 'running' context, there is a 'not_running' context.
+Finally, for the case where a node should be started, there is a 'start'
+context.
 
 The config is just loaded from the configuration file.  The args are the rest
 of the command line as split by your shell, as strings.
+
+Context Selection
+=================
+
+The process for selecting Context has a fair bit of voodoo to achieve the
+behavior that I feel is useful.  Roughly, the following pseudo-code is
+followed, and terminates as soon as an attempted command exists:
+
+try none:command(...)
+find_node
+if node is running:
+  try running:command(...)
+else:
+  try not_running:command(...)
+  try start:command(...)
+
+Essentially, 'none' commands override everything, then only 'running' commands
+when a node is running, OR 'not_running' in preference to 'start'.
+
+The idea is that the normal case is to either run commands with no context
+(usually utility commands) or commands in the server process.  Fallback
+behavior is provided by "not running" cases, with "start" commands as the last
+resort when no node is running.  This "start" behavior is designed to make it
+difficult to accidentally start multiple copies of a server when you instead
+intend to have graceful startup for certain commands that are normally used
+when a server is running.
 
 Helpful Utilities
 =================
