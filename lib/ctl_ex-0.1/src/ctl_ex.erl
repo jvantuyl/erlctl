@@ -28,9 +28,14 @@ handle_call({add_user,User},_From,State) ->
   {reply,ok,NewState};
 handle_call({del_user,User},_From,State) ->
   Users = State#ce_state.users,
-  NewUsers = sets:del_element(User,Users),
-  NewState = State#ce_state{users=NewUsers},
-  {reply,ok,NewState};
+  case sets:is_element(User,Users) of
+    true ->
+      NewUsers = sets:del_element(User,Users),
+      NewState = State#ce_state{users=NewUsers},
+      {reply,ok,NewState};
+    false ->
+      {reply,no_such_user,State}
+  end;
 handle_call(list_users,_From,State) ->
   Users = State#ce_state.users,
   UserList = lists:sort(sets:to_list(Users)),
