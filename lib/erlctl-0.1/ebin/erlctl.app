@@ -1,7 +1,7 @@
 {application,
   erlctl,
   [
-    {description, "TODO"},
+    {description, "ErlCtl Control Framework"},
     {vsn, "0.1"},
     {modules, [erlctl_app,erlctl_sup]},
     {registered, [erlctl_sup]},
