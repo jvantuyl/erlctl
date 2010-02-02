@@ -13,11 +13,9 @@ del_user(User) -> gen_server:call(?MODULE,{del_user,User}).
 list_users()   -> gen_server:call(?MODULE,list_users).
 
 %% Server Implementation
-init(_) ->
-  {ok,#ce_state{users = sets:new()}}.
+init(_) -> {ok,#ce_state{users = sets:new()}}.
 
-terminate(_Reason,_State) ->
-  stopped.
+terminate(_Reason,_State) -> stopped.
 
 code_change(_OldVsn,OldState,_Extra) ->
   NewState = OldState,
@@ -37,9 +35,7 @@ handle_call(list_users,_From,State) ->
   Users = State#ce_state.users,
   UserList = lists:sort(sets:to_list(Users)),
   {reply,{ok,UserList},State}.
-  
-handle_cast(notimplemented,State) ->
-  {noreply,State}.
 
-handle_info(notimplemented,State) ->
-  {noreply,State}.
+handle_cast(notimplemented,State) -> {noreply,State}.
+
+handle_info(notimplemented,State) -> {noreply,State}.
