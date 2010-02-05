@@ -8,7 +8,12 @@ start_link() ->
 
 init(_Args) ->
   Restart = {one_for_all,5,1},
+  Handler = {
+    erlctl_handler,
+    {gen_event, start_link, [ {local, erlctl_handler} ]},
+    permanent, 5000, worker, dynamic
+  },
   Children = [
-      %{Id,{M,F,A},permanent,brutal_kill,worker,[Module]}
-    ],
+    Handler
+  ],
   {ok,{Restart,Children}}.

@@ -79,14 +79,22 @@ three arguments: Context, Config, and Args.
 When a command is executed, an Erlang node starts in the CLI command and there
 may also be an Erlang node already running for that application.
 
-The correct command is executed based on the context and the system state.
-If you provide the correct commands, most use-cases should be manageable.
-For commands that should always just be executed in the CLI process, the
-'none' context is provided.  For commands that should be executed in a running
-server context, the 'running' context is there.  To provide fallback behavior 
-for commands in the 'running' context, there is a 'not_running' context.
-Finally, for the case where a node should be started, there is a 'start'
-context.
+The correct command implementation function is executed based on the context
+and the system state. If you provide the correct commands, most use-cases
+should be manageable. For commands that should always just be executed in the
+CLI process, the 'none' context is provided. For commands that should be
+executed in a running server context, the 'running' context is there. To
+provide fallback behavior for commands in the 'running' context, there is a
+'not_running' context. Finally, for the case where a node should be started,
+there is a 'start' context.
+
+The return value of command implementation functions is not examined, and
+returning without an exception is consider success. If they raise an
+exception, the command-line utility exits with a status of 254. If they are
+not found, certain fall-through behavior happens, as specified in the next
+section. If you wish to manipulate configuration data, do input or output, or
+exit with a status code, various mechanisms are provided, as detailed in the
+final section.
 
 The config is just loaded from the configuration file.  The args are the rest
 of the command line as split by your shell, as strings.

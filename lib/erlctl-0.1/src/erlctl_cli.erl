@@ -1,5 +1,5 @@
 -module (erlctl_cli).
--export([run_command/1,halt_with_error/0]).
+-export([run_command/1,ensure_exit/0]).
 
 process_opts() ->
   Args = init:get_plain_arguments(),
@@ -53,19 +53,42 @@ split_cmdline(RunName,Args) ->
       io:format(standard_error,"Unable to parse app or command: ~p~n",[Args]),
       halt_with_error()
   end,
-  {ok,list_to_atom(AppName),list_to_atom(Cmd),CmdArgs}.
+  {ok,AppName,Cmd,CmdArgs}.
 
 run_command([ScriptName]) ->
   Name = filename:basename(ScriptName),
   {ok,Opts,CmdLine} = process_opts(),
   {ok,AppName,Cmd,Args} = split_cmdline(Name,CmdLine),
-  exec_command(AppName,Cmd,Args,Opts).
+  Module = list_to_atom(AppName ++ "_cli"),
+  Function = list_to_atom(Cmd),
+  erlctl:start_delegate(),
+  context_none(Module,Function,Args,Opts).
 
-exec_command(AppName,Cmd,Args,Opts) ->
-  io:format("<~p>~p(~p): ~p~n",[AppName,Cmd,Opts,Args]),
-  halt(0).
+try_func(Ctx,Mod,Func,Args) ->
+  try
+    {ok,apply(Mod,Func,[Ctx,Args])}
+  catch
+    error:undef -> no_func
+  end.
+
+context_none(Mod,Func,Args,_Opts) ->
+  case try_func(none,Mod,Func,Args) of
+    {ok,_} ->
+      erlctl:exit_with_code(0);
+    no_func ->
+      not_found()
+  end.
+
+not_found() ->
+  io:format("unrecognized command~n"),
+  halt(250).
 
 % This is called if run_command doesn't terminate the system, which shouldn't
 % ever happen unless there is a critical error.
 halt_with_error() ->
+  io:format("unspecified fatal error~n"),
   halt(255).
+
+ensure_exit() ->
+  io:format("error executing command~n"),
+  halt(254).

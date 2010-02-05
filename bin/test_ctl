@@ -1,8 +1,1 @@
-#!/bin/sh
-SCRIPTNAME=$(basename $0)
-exec erl \
-  -noshell \
-  -mode interactive \
-  -run erlctl_cli run_command "$SCRIPTNAME" \
-  -run erlctl_cli halt_with_error \
-  -extra "$@"
+erlctl
