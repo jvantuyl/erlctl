@@ -1,6 +1,8 @@
 -module (erlctl_cli).
 -export([run_command/1,ensure_exit/0]).
+-include_lib("kernel/include/inet.hrl"). % for #hostent
 
+% Command Line Handling Functions
 process_opts() ->
   Args = init:get_plain_arguments(),
   try handle_arg(Args,[])
@@ -55,29 +57,94 @@ split_cmdline(RunName,Args) ->
   end,
   {ok,AppName,Cmd,CmdArgs}.
 
+% Entry Point for Running Commands
 run_command([ScriptName]) ->
   Name = filename:basename(ScriptName),
-  {ok,Opts,CmdLine} = process_opts(),
+  {ok,RawOpts,CmdLine} = process_opts(),
   {ok,AppName,Cmd,Args} = split_cmdline(Name,CmdLine),
+  Opts = [{app,AppName} | RawOpts],
   Module = list_to_atom(AppName ++ "_cli"),
   Function = list_to_atom(Cmd),
   erlctl:start_delegate(),
-  context_none(Module,Function,Args,Opts).
+  try_context(none,Module,Function,Args,Opts),
+  start_networking(Opts).
 
-try_func(Ctx,Mod,Func,Args) ->
-  try
-    {ok,apply(Mod,Func,[Ctx,Args])}
+% Context Helpers
+get_fqdn(HostName) ->
+  case inet:gethostbyname(HostName) of
+    {ok,#hostent{h_name = CName,h_aliases = Aliases}} ->
+      Names = [CName | Aliases],
+      hd(
+        lists:filter(
+          fun (X) ->
+            not lists:prefix("localhost",X)
+          end,
+          Names
+        )
+      );
+    {error,_} ->
+      HostName % fallback to short name
+  end.
+
+is_longname(Name) -> lists:member($.,Name).
+
+get_shortname(undefined) ->
+  {ok,HN} = inet:gethostname(),
+  HN;
+get_shortname(Manual) ->
+  Manual.
+
+get_longname(undefined) ->
+  {ok,HN} = inet:gethostname(),
+  get_fqdn(HN);
+get_longname(Manual) ->
+  case is_longname(Manual) of
+    true ->
+      Manual;
+    false ->
+      get_fqdn(Manual)
+  end.
+
+get_hostname(Opts) ->
+  HnOpt = proplists:get_value(host,Opts),
+  LnOpt = proplists:get_bool(longnames,Opts),
+  case LnOpt of
+    true ->
+      HostName = get_shortname(HnOpt);
+    false ->
+      HostName = get_longname(HnOpt)
+  end,
+  case {LnOpt,is_longname(HostName)} of
+    {false,true} ->
+      io:format(standard_error,
+        "Warning: using name with dot as a shortname~n",[]);
+    {true,false} ->
+      io:format(standard_error,
+        "Warning: using name without a dot as a longname~n",[]);
+    _ ->
+      ok
+  end,
+  HostName.
+
+cli_nodename(HostName) ->
+  AppName = proplists:get_value(app),
+  AppName ++ "ctl_" ++ os:getpid() ++ "@" ++ HostName.
+
+start_networking(Opts) ->
+  LongNames = proplists:get_bool(longnames,Opts),
+  HostName = get_hostname(Opts),
+  io:format("~p,~p~n",[LongNames,HostName]).
+
+try_context(Ctx,Mod,Func,Args,_Opts) ->
+  try apply(Mod,Func,[Ctx,Args]) of
+    _ ->
+      erlctl:exit_with_code(0)
   catch
-    error:undef -> no_func
+    error:undef ->
+      no_command
   end.
 
-context_none(Mod,Func,Args,_Opts) ->
-  case try_func(none,Mod,Func,Args) of
-    {ok,_} ->
-      erlctl:exit_with_code(0);
-    no_func ->
-      not_found()
-  end.
+% Various Error Conditions
 
 not_found() ->
   io:format("unrecognized command~n"),
