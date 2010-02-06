@@ -106,13 +106,13 @@ The process for selecting Context has a fair bit of voodoo to achieve the
 behavior that I feel is useful.  Roughly, the following pseudo-code is
 followed, and terminates as soon as an attempted command exists:
 
-try none:command(...)
-find_node
-if node is running:
-  try running:command(...)
+try none:command(...)          [in CLI Node]
+find_node                      [in CLI Node]
+if node is running:            [in CLI Node]
+  try running:command(...)     [in Target Node]
 else:
-  try not_running:command(...)
-  try start:command(...)
+  try not_running:command(...) [in CLI Node]
+  try start:command(...)       [in Newly Started Node]
 
 Essentially, 'none' commands override everything, then only 'running' commands
 when a node is running, OR 'not_running' in preference to 'start'.
