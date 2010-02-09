@@ -16,7 +16,7 @@ start(start,[]) ->
   erlctl:format("Started~n",[]),
   exit_with_code(0).
 
-%% @doc When a VM is running, stop the ctl_ex application.
+%% @doc Stop the ctl_ex application.
 stop(not_running,[]) ->
   format("Not running.~n"),
   exit_with_code(0);
@@ -25,7 +25,7 @@ stop(running,[]) ->
   exit_with_code(0),
   init:stop().
 
-%% @doc When a VM is running, list the users.
+%% @doc List the users.
 list_users(not_running,_) ->
   format("Not running.~n"),
   exit_with_code(1);
@@ -40,7 +40,7 @@ list_users(running,[]) ->
   ),
   exit_with_code(0).
 
-%% @doc When a VM is running, add a user.
+%% @doc Add a user.
 add_user(not_running,_) ->
   format("Not running.~n"),
   exit_with_code(1);
@@ -49,7 +49,7 @@ add_user(running,[User]) ->
   format("User added~n"),
   exit_with_code(0).
 
-%% @doc When a VM is running, delete a user.
+%% @doc Delete a user.
 del_user(not_running,_) ->
   format("Not running.~n"),
   exit_with_code(1);
