@@ -12,7 +12,7 @@ start(running,_) ->
   format("Already running.~n"),
   exit_with_code(1);
 start(start,[]) ->
-  {ok,_} = application:start(ctl_ex),
+  ok = application:start(ctl_ex),
   erlctl:format("Started~n",[]),
   exit_with_code(0).
 
