@@ -57,7 +57,7 @@ The system options are:
     Defaults to shortnames.
   -n <node to be managed>
     Specifies which Erlang node should be managed.
-    Defaults to application@<hostname>
+    Defaults to <application>@<hostname>
   -c <config file>
     Specifies a configuration file.  This file can be managed with the config
     commands or with your text editor of choice.
