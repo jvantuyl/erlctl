@@ -51,12 +51,15 @@ The system options are:
 
   -h <host name of machine>
     Specifies which Erlang hostname should be used.
-    Default determined using gethostbyname.
+    Default determined using inet:gethostname/0.
   -l | -s
     Determines whether longnames or shortnames will be used for distribution.
     Defaults to shortnames.
-  -n <node to be managed>
-    Specifies which Erlang node should be managed.
+  -n <local part of node name>
+    Specifies the local portion of the target VM's node name
+    Defaults to <application>
+  -N <full node name>
+    Specified the whole node name of the target VM
     Defaults to <application>@<hostname>
   -c <config file>
     Specifies a configuration file.  This file can be managed with the config
