@@ -2,7 +2,7 @@
 -export([run_command/1,ensure_exit/0]).
 -include_lib("kernel/include/inet.hrl"). % for #hostent
 -define(DEF_NAMES,long).
--define(STARTUP_DELAY,1200).
+-define(STARTUP_DELAY,5000).
 
 % Command Line Handling Functions
 process_opts() ->
@@ -23,6 +23,8 @@ handle_arg(["-l"          | Rest ], Opts) ->
   handle_arg(Rest,[{names,long}      | Opts]);
 handle_arg(["-s"          | Rest ], Opts) ->
   handle_arg(Rest,[{names,short}     | Opts]);
+handle_arg(["-N",FN       | Rest ], Opts) ->
+  handle_arg(Rest,[{fullnode,FN}     | Opts]);
 handle_arg(["-n",NodeName | Rest ], Opts) ->
   handle_arg(Rest,[{node,NodeName}   | Opts]);
 handle_arg(["-c",ConfFile | Rest ], Opts) ->
@@ -79,7 +81,8 @@ run_command([ScriptName]) ->
 setup_node() ->
   register(erlctl_cmd_runner,self()), % Used By Started Nodes
   lists:foreach(fun error_logger:delete_report_handler/1,
-    gen_event:which_handlers(error_logger)). % No error reports needed
+    gen_event:which_handlers(error_logger)), % No error reports needed
+  ok.
 
 try_remote(Ctx,Module,Function,Args,Opts) ->
   Delegate = erlctl:get_delegate(),
@@ -113,11 +116,12 @@ try_start(Module,Function,Args,Opts) ->
   end,
   NameArgs = [NameType,TgtName],
   DaemonArgs = ["-detached","-noshell","-mode","interactive"],
-  StartArgs = ["-s","erlctl","start",atom_to_list(node())],
+  StartArgs =  ["-s","erlctl","start",atom_to_list(node())],
   ErlOpts = [
     {args, NameArgs ++ DaemonArgs ++ StartArgs},
     exit_status,hide
   ],
+  io:format("Open: ~p ~p~n",[ErlPath,ErlOpts]),
   Port = open_port({spawn_executable,ErlPath},ErlOpts),
   receive
     {Port,{exit_status,0}} ->
@@ -127,25 +131,29 @@ try_start(Module,Function,Args,Opts) ->
   end,
   receive
     {vm_started,TgtNode} ->
+      Node = TgtNode,
       ok;
-    {vm_started,Unexpected} ->
-      io:format(standard_error,"Unexpected VM name ~p",[Unexpected])
+    {vm_started,ActualNode} ->
+      Node = ActualNode,
+      io:format(standard_error,"Unexpected VM name ~p~n",[ActualNode])
     after ?STARTUP_DELAY ->
+      Node = undefined,
       cannot_start_vm("timeout waiting for VM to start",[])
   end,
-  try_remote(start,Module,Function,Args,Opts),
+  Opts2 = [ {node,Node} | Opts ],
+  try_remote(start,Module,Function,Args,Opts2),
   next.
 
 % Context Helpers
 is_longname(Name) -> lists:member($.,Name).
 
 make_hostname(short,auto) ->
-  {ok,HN} = inet_db:gethostname(),
+  {ok,HN} = inet:gethostname(),
   HN;
 make_hostname(short,Manual) ->
   Manual;
 make_hostname(long,auto) ->
-  HN = inet_db:gethostname(),
+  {ok,HN} = inet:gethostname(),
   DN = inet_db:res_option(domain), % Networking Must Be Running Here!
   HN ++ "." ++ DN;
 make_hostname(long,Manual) ->
@@ -180,13 +188,18 @@ cli_nodename(Opts) ->
   list_to_atom(AppName ++ "ctl_" ++ os:getpid()).
 
 svr_nodename(Opts) ->
-  case proplists:get_value(node,Opts) of
+  case proplists:get_value(fullnode,Opts) of
     undefined ->
       HostName = get_hostname(Opts),
-      AppName = proplists:get_value(app,Opts),
-      AppName ++ "@" ++ HostName;
+      case proplists:get_value(node,Opts) of
+        undefined ->
+          NodeName = proplists:get_value(app,Opts);
+        NName ->
+          NodeName = NName
+      end,
+      NodeName ++ "@" ++ HostName;
     NodeName ->
-      NodeName
+      NodeName % FIXME: Verify fully specified node names?
   end.
 
 start_networking(Opts) ->
@@ -201,7 +214,8 @@ start_networking(Opts) ->
     {error,_} ->
       networking_failure()
   end,
-  {ok,[{target,svr_nodename(Opts)} | Opts]}.
+  SvrNode = svr_nodename(Opts),
+  {ok,[{target,SvrNode} | Opts]}.
 
 try_context(Ctx,Mod,Func,Args,_Opts) ->
   try apply(Mod,Func,[Ctx,Args]) of
