@@ -30,7 +30,7 @@ list_users(not_running,_) ->
   format("Not running.~n"),
   exit_with_code(1);
 list_users(running,[]) ->
-  Users = ctl_ex:list_users(),
+  {ok,Users} = ctl_ex:list_users(),
   format("Users:~n"),
   lists:foreach(
     fun (User) ->
