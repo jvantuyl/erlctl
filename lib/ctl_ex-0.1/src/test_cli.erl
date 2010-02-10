@@ -22,6 +22,7 @@ stop(not_running,[]) ->
   exit_with_code(0);
 stop(running,[]) ->
   application:stop(ctl_ex),
+  format("Stopping.~n"),
   exit_with_code(0),
   init:stop().
 
