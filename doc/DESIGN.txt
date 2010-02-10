@@ -65,6 +65,7 @@ The system options are:
     Specifies a configuration file.  This file can be managed with the config
     commands or with your text editor of choice.
     Defaults to $HOME/.application.config
+    FIXME:  Config files aren't implemented yet!
 
 Application Interface
 =====================
@@ -99,8 +100,7 @@ section. If you wish to manipulate configuration data, do input or output, or
 exit with a status code, various mechanisms are provided, as detailed in the
 final section.
 
-The config is just loaded from the configuration file.  The args are the rest
-of the command line as split by your shell, as strings.
+The args are the rest of the command line as split by your shell, as strings.
 
 Context Selection
 =================
@@ -131,6 +131,16 @@ when a server is running.
 Helpful Utilities
 =================
 
+To display output at the CLI node (correctly in any context), erlctl provides
+a format/2 function (which is identical to io:format/2).
+
+To set exit codes at the CLI node (correctly in any context), erlctl provides
+a halt/1 function.
+
+To cause the server to exit, erlctl provides a server_exit/0 function.
+
+FIXME: System commands and Config Files aren't implemented yet.
+
 To manage the configuration file, a "config" command is provided.  This 
 command modifies the config file as a bag of key-value pairs.  No locking is
 performed on the file, although it is atomically updated via symlink swaps on
@@ -142,9 +152,3 @@ may be deleted and recreated as separate entries).  The special type 'any'
 allows any type of data to be set.  Also, all types support a 'null' value.
 This can be used when initializing a configuration to provide type-safety
 for configuration values while not specifying defaults.
-
-To display output at the CLI node (correctly in any context), erlctl provides
-a format/2 function (which is identical to io:format/2).
-
-To set exit codes at the CLI node (correctly in any context), erlctl provides
-a halt/1 function.
