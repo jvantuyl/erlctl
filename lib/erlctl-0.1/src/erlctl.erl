@@ -1,14 +1,31 @@
 -module (erlctl).
--export([start/0,start_delegate/0,format/1,format/2,exit_with_code/1]).
+-export([start/1,start_ack/1,remote_run/2]).
+-export([start_delegate/0,get_delegate/0,set_delegate/1]).
+-export([format/1,format/2,exit_with_code/1]).
 
-start() ->
+start([NotifyNode]) ->
   ok = application:start(sasl),
-  ok = application:start(erlctl).
+  ok = application:start(erlctl),
+  spawn(NotifyNode,erlctl,start_ack,[node()]).
+
+start_ack(StartedNode) ->
+  erlctl_cmd_runner ! {vm_started,StartedNode}.
 
 start_delegate() ->
-  Delegate = spawn_link(fun delegate/0),
+  D = spawn_link(fun delegate/0),
+  set_delegate(D),
+  D.
+
+get_delegate() ->
+  get(delegate).
+
+set_delegate(Delegate) ->
   put(delegate,Delegate),
-  Delegate.
+  ok.
+
+remote_run(Delegate,{Module,Function,Args}) ->
+  set_delegate(Delegate),
+  apply(Module,Function,Args).
 
 delegate() ->
   process_flag(trap_exit,true),
@@ -19,16 +36,14 @@ delegate_loop() ->
     {format,Format,Data} ->
       io:format(Format,Data);
     {halt,Code} ->
-      io:format("Halted with code: ~p~n",[Code]),
       halt(Code);
     {'EXIT',_,_} ->
-      io:format("Exited~n",[]),
       halt(255)
   end,
   delegate_loop().
 
 exit_with_code(Code) ->
-  Delegate = get(delegate),
+  Delegate = get_delegate(),
   case node(Delegate) =:= node() of
     true ->
       halt(Code);
@@ -38,7 +53,7 @@ exit_with_code(Code) ->
   ok.
 
 format(Format) ->
-  Delegate = get(delegate),
+  Delegate = get_delegate(),
   case node(Delegate) =:= node() of
     true ->
       io:format(Format,[]);
@@ -48,7 +63,7 @@ format(Format) ->
   ok.
 
 format(Format,Data) ->
-  Delegate = get(delegate),
+  Delegate = get_delegate(),
   case node(Delegate) =:= node() of
     true ->
       io:format(Format,Data);

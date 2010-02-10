@@ -61,6 +61,7 @@ split_cmdline(RunName,Args) ->
 
 % Entry Point for Running Commands
 run_command([ScriptName]) ->
+  setup_node(),
   Name = filename:basename(ScriptName),
   {ok,Opts0,CmdLine} = process_opts(),
   {ok,AppName,Cmd,Args} = split_cmdline(Name,CmdLine),
@@ -68,22 +69,24 @@ run_command([ScriptName]) ->
   Module = list_to_atom(AppName ++ "_cli"),
   Function = list_to_atom(Cmd),
   erlctl:start_delegate(),
-  io:format("None?~n",[]),
   try_context(none,Module,Function,Args,Opts1),
   {ok,Opts2} = start_networking(Opts1),
-  io:format("Remote?~n",[]),
   try_remote(running,Module,Function,Args,Opts2),
-  io:format("Not Running?~n",[]),
   try_context(not_running,Module,Function,Args,Opts2),
-  io:format("Start?~n",[]),
   try_start(Module,Function,Args,Opts2),
   not_found().
 
+setup_node() ->
+  register(erlctl_cmd_runner,self()), % Used By Started Nodes
+  lists:foreach(fun error_logger:delete_report_handler/1,
+    gen_event:which_handlers(error_logger)). % No error reports needed
+
 try_remote(Ctx,Module,Function,Args,Opts) ->
+  Delegate = erlctl:get_delegate(),
   Target = list_to_atom(proplists:get_value(target,Opts)),
   process_flag(trap_exit,true),
-  % FIXME: Delegate?
-  Pid = spawn_link(Target,Module,Function,[Ctx,Args]),
+  MFA = {Module,Function,[Ctx,Args]},
+  Pid = spawn_link(Target,erlctl,remote_run,[Delegate,MFA]),
   receive
     {'EXIT',Pid,noconnection} ->
       no_vm;
@@ -94,7 +97,8 @@ try_remote(Ctx,Module,Function,Args,Opts) ->
   next.
 
 try_start(Module,Function,Args,Opts) ->
-  Tgt = proplists:get_value(target,Opts),
+  TgtName = proplists:get_value(target,Opts),
+  TgtNode = list_to_atom(TgtName),
   case proplists:get_value(names,Opts,?DEF_NAMES) of
     long ->
       NameType = "-name";
@@ -107,20 +111,28 @@ try_start(Module,Function,Args,Opts) ->
     FoundPath ->
       FoundPath
   end,
+  NameArgs = [NameType,TgtName],
+  DaemonArgs = ["-detached","-noshell","-mode","interactive"],
+  StartArgs = ["-s","erlctl","start",atom_to_list(node())],
   ErlOpts = [
-    {args, [NameType,Tgt,"-detached","-noshell","-mode","interactive"]},
+    {args, NameArgs ++ DaemonArgs ++ StartArgs},
     exit_status,hide
   ],
-  io:format("Starting...~n"),
   Port = open_port({spawn_executable,ErlPath},ErlOpts),
   receive
     {Port,{exit_status,0}} ->
-      io:format("Started~n",[]),
       started;
     {Port,{exit_status,X}} ->
       cannot_start_vm("exited with error ~p",[X])
   end,
-  timer:sleep(?STARTUP_DELAY),
+  receive
+    {vm_started,TgtNode} ->
+      ok;
+    {vm_started,Unexpected} ->
+      io:format(standard_error,"Unexpected VM name ~p",[Unexpected])
+    after ?STARTUP_DELAY ->
+      cannot_start_vm("timeout waiting for VM to start",[])
+  end,
   try_remote(start,Module,Function,Args,Opts),
   next.
 
