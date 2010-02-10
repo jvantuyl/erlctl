@@ -1,5 +1,9 @@
 -module (erlctl).
--export([start_delegate/0,format/1,format/2,exit_with_code/1]).
+-export([start/0,start_delegate/0,format/1,format/2,exit_with_code/1]).
+
+start() ->
+  ok = application:start(sasl),
+  ok = application:start(erlctl).
 
 start_delegate() ->
   Delegate = spawn_link(fun delegate/0),
