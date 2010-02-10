@@ -205,7 +205,7 @@ try_context(Ctx,Mod,Func,Args,_Opts) ->
 % Various Error Conditions
 
 not_found() ->
-  io:format("unrecognized command~n"),
+  io:format(standard_error,"unrecognized command~n",[]),
   halt(250).
 
 networking_failure() ->
@@ -217,14 +217,16 @@ remote_error(Data) ->
   halt(252).
 
 cannot_start_vm(Msg,Data) ->
-  io:format(standard_error,"Error starting 'erl': " ++ Msg ++ "~n",Data).
+  io:format(standard_error,"Error starting 'erl': " ++ Msg ++ "~n",Data),
+  halt(253).
 
 % This is called if run_command doesn't terminate the system, which shouldn't
 % ever happen unless there is a critical error.
+ensure_exit() ->
+  io:format(standard_error,"error executing command~n",[]),
+  halt(254).
+
 halt_with_error() ->
-  io:format("unspecified fatal error~n"),
+  io:format(standard_error,"unspecified fatal error~n",[]),
   halt(255).
 
-ensure_exit() ->
-  io:format("error executing command~n"),
-  halt(254).
