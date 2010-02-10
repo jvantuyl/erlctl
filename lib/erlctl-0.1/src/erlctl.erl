@@ -1,7 +1,7 @@
 -module (erlctl).
 -export([start/1,start_ack/1,remote_run/2]).
 -export([start_delegate/0,get_delegate/0,set_delegate/1]).
--export([format/1,format/2,exit_with_code/1]).
+-export([format/1,format/2,exit_with_code/1,server_exit/0]).
 
 start([NotifyNode]) ->
   ok = application:start(sasl),
@@ -48,10 +48,14 @@ exit_with_code(Code) ->
     true ->
       halt(Code);
     false ->
+      unlink(Delegate),
       Delegate ! {halt,Code}
   end,
-  timer:sleep(250), % to prevent the exit signal from beating the message
+  timer:sleep(100), % to prevent the exit signal from beating the message
   ok.
+
+server_exit() ->
+  timer:apply_after(50,init,stop,[]).
 
 format(Format) ->
   Delegate = get_delegate(),

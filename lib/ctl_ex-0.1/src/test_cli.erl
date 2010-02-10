@@ -1,5 +1,5 @@
 -module (test_cli).
--import(erlctl,[format/1,format/2,exit_with_code/1]).
+-import(erlctl,[format/1,format/2,exit_with_code/1,server_exit/0]).
 -export([version/2,start/2,stop/2,list_users/2,add_user/2,del_user/2]).
 
 %% @doc Prints out the installed version of the ctl_ex server.
@@ -23,8 +23,8 @@ stop(not_running,[]) ->
 stop(running,[]) ->
   application:stop(ctl_ex),
   format("Stopping.~n"),
-  exit_with_code(0),
-  init:stop().
+  server_exit(),
+  exit_with_code(0).
 
 %% @doc List the users.
 list_users(not_running,_) ->
