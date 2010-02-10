@@ -15,8 +15,10 @@ delegate_loop() ->
     {format,Format,Data} ->
       io:format(Format,Data);
     {halt,Code} ->
+      io:format("Halted with code: ~p~n",[Code]),
       halt(Code);
     {'EXIT',_,_} ->
+      io:format("Exited~n",[]),
       halt(255)
   end,
   delegate_loop().
