@@ -50,6 +50,7 @@ exit_with_code(Code) ->
     false ->
       Delegate ! {halt,Code}
   end,
+  timer:sleep(250), % to prevent the exit signal from beating the message
   ok.
 
 format(Format) ->
