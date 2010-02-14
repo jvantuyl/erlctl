@@ -13,6 +13,10 @@ def otp_release
 	%x[scripts/erl_info otp_release].chomp
 end
 
+def erts_version
+  %x[scripts/erl_info erts_version].chomp.split "."
+end
+
 def otp_lib
   File.join(otp_root,'lib')
 end
