@@ -9,6 +9,10 @@ def otp_root
   %x[scripts/erl_info otp_root].chomp
 end
 
+def otp_release
+	%x[scripts/erl_info otp_release].chomp
+end
+
 def otp_lib
   File.join(otp_root,'lib')
 end

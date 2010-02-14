@@ -121,7 +121,6 @@ try_start(Module,Function,Args,Opts) ->
     {args, NameArgs ++ DaemonArgs ++ StartArgs},
     exit_status,hide
   ],
-  io:format("Open: ~p ~p~n",[ErlPath,ErlOpts]),
   Port = open_port({spawn_executable,ErlPath},ErlOpts),
   receive
     {Port,{exit_status,0}} ->

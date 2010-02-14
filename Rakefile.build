@@ -2,6 +2,10 @@ namespace :build do
   # Building the Erlang Code
   desc 'compile code (default)'
   task :compile do
+		if otp_release < "R13"
+			puts "Need at least OTP release R13 for erlctl"
+			exit 1
+		end
     Dir.glob('lib/*').each do |d|
       if File.directory?(d) and File.exists?(d + '/Emakefile')
         Dir.chdir d 
