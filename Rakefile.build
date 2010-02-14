@@ -3,7 +3,7 @@ namespace :build do
   desc 'compile code (default)'
   task :compile do
 		if (erts_version <=> ["5","7","3"]) < 0
-			puts "Need at least OTP release R13 for erlctl"
+			puts "Need at least OTP release R13 (erts 5.7.3) for erlctl"
 			exit 1
 		end
     Dir.glob('lib/*').each do |d|
