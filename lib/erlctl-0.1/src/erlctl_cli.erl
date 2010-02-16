@@ -117,11 +117,8 @@ try_start(Module,Function,Args,Opts) ->
   NameArgs = [NameType,TgtName],
   DaemonArgs = ["-detached","-noshell","-mode","interactive"],
   StartArgs =  ["-s","erlctl","start",atom_to_list(node())],
-  ErlOpts = [
-    {args, NameArgs ++ DaemonArgs ++ StartArgs},
-    exit_status,hide
-  ],
-  Port = open_port({spawn_executable,ErlPath},ErlOpts),
+  ErlArgs = NameArgs ++ DaemonArgs ++ StartArgs,
+  Port = start_vm(ErlPath,ErlArgs),
   receive
     {Port,{exit_status,0}} ->
       started;
@@ -142,6 +139,17 @@ try_start(Module,Function,Args,Opts) ->
   Opts2 = [ {node,Node} | Opts ],
   try_remote(start,Module,Function,Args,Opts2),
   next.
+
+start_vm(Path,Args) ->
+  Opts0 = [ {args,Args}, exit_status, hide ],
+  try
+    open_port({spawn_executable,Path},Opts0)
+  catch
+    error:badarg ->
+      Spawn = lists:flatten( [ [X,$ ] || X <- [Path | Args]] ),
+      Opts1 = [ exit_status ],
+      open_port({spawn,Spawn},Opts1)
+  end.
 
 % Context Helpers
 is_longname(Name) -> lists:member($.,Name).
