@@ -2,5 +2,5 @@
 exec erl \
   -noshell \
   -mode interactive \
-  -s erlctl_cli \
+  -s erlctl_cmd \
   -extra "$0" "$@"

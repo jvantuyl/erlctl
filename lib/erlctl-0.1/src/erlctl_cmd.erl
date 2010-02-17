@@ -1,4 +1,4 @@
--module (erlctl_cli).
+-module (erlctl_cmd).
 -export([start/0]).
 
 -include_lib("kernel/include/inet.hrl"). % for #hostent
