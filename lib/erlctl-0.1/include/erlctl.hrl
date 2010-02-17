@@ -1,2 +1,2 @@
--define(DEF_NAMES,long).
--define(STARTUP_DELAY,5000).
+-import(erlctl,[format/1,format/2,exit_with_code/1,server_exit/0]).
+-compile(export_all).

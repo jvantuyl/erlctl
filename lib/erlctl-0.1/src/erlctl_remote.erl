@@ -2,7 +2,7 @@
 -export([remote_command/6,run/2]).
 -export([start_delegate/0,get_delegate/0,set_delegate/1]).
 
--include_lib("erlctl/include/erlctl.hrl").
+-include_lib("erlctl/include/internal.hrl").
 
 remote_command(Node,Ctx,Module,Function,Args,_Opts) ->
   Delegate = get_delegate(),

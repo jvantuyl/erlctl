@@ -1,7 +1,7 @@
 -module (erlctl_cmd).
 -export([start/0]).
 
--include_lib("erlctl/include/erlctl.hrl").
+-include_lib("erlctl/include/internal.hrl").
 
 % Entry Point for Running Commands
 -spec( start() -> no_return() ).
@@ -16,9 +16,9 @@ start() ->
     try_command(start,       Module,Function,Args,Opts1),
     erlctl_err:not_found()
   catch
-    _A:_B ->
-      %ST = erlang:get_stacktrace(),
-      %io:format(standard_error,"WAHHHH! ~p:~p~n  ~p~n",[A,B,ST]),
+    A:B ->
+      ST = erlang:get_stacktrace(),
+      io:format(standard_error,"WAHHHH! ~p:~p~n  ~p~n",[A,B,ST]),
       erlctl_err:halt_with_error()
   end,
   never_reached.

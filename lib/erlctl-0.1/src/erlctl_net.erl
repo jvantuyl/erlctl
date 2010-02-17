@@ -1,7 +1,7 @@
 -module (erlctl_net).
 -export([start_networking/1]).
 
--include_lib("erlctl/include/erlctl.hrl").
+-include_lib("erlctl/include/internal.hrl").
 
 start_networking(Opts) ->
   case proplists:get_value(names,Opts,?DEF_NAMES) of

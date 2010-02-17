@@ -1,0 +1,2 @@
+-define(DEF_NAMES,long).
+-define(STARTUP_DELAY,5000).

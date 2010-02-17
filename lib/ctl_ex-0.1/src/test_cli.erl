@@ -1,6 +1,5 @@
 -module (test_cli).
--import(erlctl,[format/1,format/2,exit_with_code/1,server_exit/0]).
--export([version/2,start/2,stop/2,list_users/2,add_user/2,del_user/2]).
+-include_lib("erlctl/include/erlctl.hrl").
 
 %% @doc Prints out the installed version of the ctl_ex server.
 version(none,[]) ->

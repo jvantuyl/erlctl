@@ -1,7 +1,7 @@
 -module (erlctl_vm).
 -export([start_vm/1]).
 
--include_lib("erlctl/include/erlctl.hrl").
+-include_lib("erlctl/include/internal.hrl").
 
 start_vm(Opts) ->
   % Build Target Node and Networking Info
