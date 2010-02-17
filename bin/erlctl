@@ -2,6 +2,5 @@
 exec erl \
   -noshell \
   -mode interactive \
-  -run erlctl_cli run_command "$0" \
-  -run erlctl_cli ensure_exit \
-  -extra "$@"
+  -s erlctl_cli \
+  -extra "$0" "$@"

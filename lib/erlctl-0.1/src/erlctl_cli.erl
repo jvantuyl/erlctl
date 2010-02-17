@@ -1,22 +1,56 @@
 -module (erlctl_cli).
--export([run_command/1,ensure_exit/0]).
+-export([start/0]).
+
 -include_lib("kernel/include/inet.hrl"). % for #hostent
+
 -define(DEF_NAMES,long).
 -define(STARTUP_DELAY,5000).
 
 % Command Line Handling Functions
-process_opts() ->
-  Args = init:get_plain_arguments(),
-  try handle_arg(Args,[])
+process_cmdline() ->
+  % Get Script Name and Args
+  [ScriptName | Args0] = init:get_plain_arguments(),
+  RunName = filename:basename(ScriptName),
+  % Process Options and Arguments
+  {ok,Opts0,Args1} = try
+    handle_arg(Args0,[])
   catch
-    error:{sys_arg,[BadArg | Rest] } ->
-      io:format(standard_error,"bad system argument: ~p ~p~n",[BadArg, Rest]),
+    error:{sys_arg,[BadArg | Rst0] } ->
+      io:format(standard_error,"bad system argument: ~p ~p~n",[BadArg, Rst0]),
       halt_with_error();
     error:badmatch ->
       io:format(standard_error,"error processing system arguments!~n",[]),
       halt_with_error()
-  end.
+  end,
+  % Infer Usage From Name of Control Script and Args
+  case {lists:reverse(RunName),Args1} of
+    {"ltclre",[C0, C1 | Rst1]} ->        % erlctl <app> <cmd> [args]
+      AppName = C0,
+      Cmd = C1,
+      Args2 = Rst1;
+    {"ltc_" ++ RevName, [C0 | Rst1]} ->  % <app>_ctl <cmd> [args]
+      AppName = lists:reverse(RevName),
+      Cmd = C0,
+      Args2 = Rst1;
+    {"ltc" ++ RevName, [ C0 | Rst1 ]} -> % <app>ctl <cmd> [args]
+      AppName = lists:reverse(RevName),
+      Cmd = C0,
+      Args2 = Rst1;
+    {_, [ C0 | Rst1 ]} ->                % <app> <cmd> [args]
+      AppName = RunName,
+      Cmd = C0,
+      Args2 = Rst1;
+    _ ->
+      AppName = error, Cmd = error, Args2 = [], % make vars safe
+      io:format(standard_error,"Unable to parse app / command: ~p~n",[Args1]),
+      halt_with_error()
+  end,
+  Opts1 = [{app,AppName} | Opts0],
+  Module = list_to_atom(AppName ++ "_cli"),
+  Function = list_to_atom(Cmd),
+  {ok,Opts1,Module,Function,Args2}.
 
+% System Arguments
 handle_arg(["-h",HostName | Rest ], Opts) ->
   handle_arg(Rest,[{host,HostName}   | Opts]);
 handle_arg(["-l"          | Rest ], Opts) ->
@@ -36,74 +70,84 @@ handle_arg([],Opts) ->
 handle_arg(Args, _Opts) ->
   erlang:error({sys_arg,Args}).
 
-split_cmdline(RunName,Args) ->
-  case {lists:reverse(RunName),Args} of
-    {"ltclre",[C0, C1 | Rest]} ->        % erlctl <app> <cmd> [args]
-      AppName = C0,
-      Cmd = C1,
-      CmdArgs = Rest;
-    {"ltc_" ++ RevName, [C0 | Rest]} ->  % <app>_ctl <cmd> [args]
-      AppName = lists:reverse(RevName),
-      Cmd = C0,
-      CmdArgs = Rest;
-    {"ltc" ++ RevName, [ C0 | Rest ]} -> % <app>ctl <cmd> [args]
-      AppName = lists:reverse(RevName),
-      Cmd = C0,
-      CmdArgs = Rest;
-    {_, [ C0 | Rest ]} ->                % <app> <cmd> [args]
-      AppName = RunName,
-      Cmd = C0,
-      CmdArgs = Rest;
-    _ ->
-      AppName = error, Cmd = error, CmdArgs = [], % make vars safe
-      io:format(standard_error,"Unable to parse app or command: ~p~n",[Args]),
+% Entry Point for Running Commands
+-spec( start() -> no_return() ).
+start() ->
+  try
+    ok = init(),
+    {ok,Opts0,Module,Function,Args} = process_cmdline(),
+    try_command(none,        Module,Function,Args,Opts0),
+    {ok,Opts1} = start_networking(Opts0),
+    try_command(running,     Module,Function,Args,Opts1),
+    try_command(not_running, Module,Function,Args,Opts1),
+    try_command(start,       Module,Function,Args,Opts1),
+    not_found()
+  catch
+    _:_ ->
+      %ST = erlang:get_stacktrace(),
+      %io:format(standard_error,"WAHHHH! ~p:~p~n  ~p~n",[A,B,ST]),
       halt_with_error()
   end,
-  {ok,AppName,Cmd,CmdArgs}.
+  never_reached.
 
-% Entry Point for Running Commands
-run_command([ScriptName]) ->
-  setup_node(),
-  Name = filename:basename(ScriptName),
-  {ok,Opts0,CmdLine} = process_opts(),
-  {ok,AppName,Cmd,Args} = split_cmdline(Name,CmdLine),
-  Opts1 = [{app,AppName} | Opts0],
-  Module = list_to_atom(AppName ++ "_cli"),
-  Function = list_to_atom(Cmd),
-  erlctl:start_delegate(),
-  try_context(none,Module,Function,Args,Opts1),
-  {ok,Opts2} = start_networking(Opts1),
-  try_remote(running,Module,Function,Args,Opts2),
-  try_context(not_running,Module,Function,Args,Opts2),
-  try_start(Module,Function,Args,Opts2),
-  not_found().
-
-setup_node() ->
-  register(erlctl_cmd_runner,self()), % Used By Started Nodes
+init() ->
+  % Clear Out Default Log Handlers
   lists:foreach(fun error_logger:delete_report_handler/1,
-    gen_event:which_handlers(error_logger)), % No error reports needed
+    gen_event:which_handlers(error_logger)),
+  % Start Delegate
+  erlctl:start_delegate(),
   ok.
 
-try_remote(Ctx,Module,Function,Args,Opts) ->
+try_command(running,Module,Function,Args,Opts) ->
+  Node = list_to_atom(proplists:get_value(target,Opts)),
+  case remote_command(Node,running,Module,Function,Args,Opts) of
+    no_vm ->
+      next
+  end;
+try_command(start,Module,Function,Args,Opts0) ->
+  {ok,Node} = start_vm(Opts0),
+  Opts1 = [ {node,Node} | Opts0 ],
+  case remote_command(Node,start,Module,Function,Args,Opts1) of
+    no_vm ->
+      cannot_start_vm("Unable to start command in new VM",[]);
+    exiting ->
+      timer:sleep(?STARTUP_DELAY), % Wait for exit message
+      erlctl:exit_with_code(0)
+  end;
+try_command(Ctx,Module,Function,Args,Opts) ->
+  local_command(Ctx,Module,Function,Args,Opts).
+
+remote_command(Node,Ctx,Module,Function,Args,_Opts) ->
   Delegate = erlctl:get_delegate(),
-  Target = list_to_atom(proplists:get_value(target,Opts)),
-  process_flag(trap_exit,true),
   MFA = {Module,Function,[Ctx,Args]},
-  Pid = spawn_link(Target,erlctl,remote_run,[Delegate,MFA]),
-  receive
+  process_flag(trap_exit,true),
+  Pid = spawn_link(Node,erlctl,remote_run,[Delegate,MFA]),
+  R = receive
     {'EXIT',Pid,noconnection} ->
       no_vm;
+    {'EXIT',Pid,normal} ->
+      erlctl:exit_with_code(0),
+      exiting;
     X ->
-      remote_error([X])
+      remote_error([X]),
+      exiting
   end,
   process_flag(trap_exit,false),
-  next.
+  R.
 
-try_start(Module,Function,Args,Opts) ->
-  try_remote(start,Module,Function,Args,[ {node,start_vm(Opts)} | Opts ]),
-  next.
+local_command(Ctx,Mod,Func,Args,_Opts) ->
+  try apply(Mod,Func,[Ctx,Args]) of
+    _ ->
+      erlctl:exit_with_code(0)
+  catch
+    error:function_clause ->
+      no_command;
+    error:undef ->
+      no_command
+  end.
 
 start_vm(Opts) ->
+  % Build Target Node and Networking Info
   TgtName = proplists:get_value(target,Opts),
   TgtNode = list_to_atom(TgtName),
   case proplists:get_value(names,Opts,?DEF_NAMES) of
@@ -112,16 +156,21 @@ start_vm(Opts) ->
     short ->
       NameType = "-sname"
   end,
+  % Build VM Parameters
   NameArgs   = [NameType,TgtName],
   DaemonArgs = ["-detached","-noshell","-mode","interactive"],
   StartArgs  = ["-s","erlctl","start",atom_to_list(node())],
   Args = NameArgs ++ DaemonArgs ++ StartArgs,
+  % Find VM Binary
   Path = case os:find_executable("erl") of
     false ->
       cannot_start_vm("cannot find executable",[]);
     FoundPath ->
       FoundPath
   end,
+  % Register Process To Catch Started Message
+  register(erlctl_cmd_runner,self()),
+  % Open VM As Port
   Opts0 = [ {args,Args}, exit_status, hide ],
   Port = try
     open_port({spawn_executable,Path},Opts0)
@@ -131,12 +180,14 @@ start_vm(Opts) ->
       Opts1 = [ exit_status ],
       open_port({spawn,Spawn},Opts1)
   end,
+  % Wait for It To Fail or Daemonize
   receive
     {Port,{exit_status,0}} ->
       started;
     {Port,{exit_status,X}} ->
       cannot_start_vm("exited with error ~p",[X])
   end,
+  % Wait for Node To Report In
   receive
     {vm_started,TgtNode} ->
       {ok,TgtNode};
@@ -221,17 +272,6 @@ start_networking(Opts) ->
   SvrNode = svr_nodename(Opts),
   {ok,[{target,SvrNode} | Opts]}.
 
-try_context(Ctx,Mod,Func,Args,_Opts) ->
-  try apply(Mod,Func,[Ctx,Args]) of
-    _ ->
-      erlctl:exit_with_code(0)
-  catch
-    error:function_clause ->
-      no_command;
-    error:undef ->
-      no_command
-  end.
-
 % Various Error Conditions
 
 not_found() ->
@@ -250,13 +290,6 @@ cannot_start_vm(Msg,Data) ->
   io:format(standard_error,"Error starting 'erl': " ++ Msg ++ "~n",Data),
   halt(253).
 
-% This is called if run_command doesn't terminate the system, which shouldn't
-% ever happen unless there is a critical error.
-ensure_exit() ->
-  io:format(standard_error,"error executing command~n",[]),
-  halt(254).
-
 halt_with_error() ->
   io:format(standard_error,"unspecified fatal error~n",[]),
   halt(255).
-
