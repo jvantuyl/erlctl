@@ -100,6 +100,10 @@ try_remote(Ctx,Module,Function,Args,Opts) ->
   next.
 
 try_start(Module,Function,Args,Opts) ->
+  try_remote(start,Module,Function,Args,[ {node,start_vm(Opts)} | Opts ]),
+  next.
+
+start_vm(Opts) ->
   TgtName = proplists:get_value(target,Opts),
   TgtNode = list_to_atom(TgtName),
   case proplists:get_value(names,Opts,?DEF_NAMES) of
@@ -108,17 +112,25 @@ try_start(Module,Function,Args,Opts) ->
     short ->
       NameType = "-sname"
   end,
-  ErlPath = case os:find_executable("erl") of
+  NameArgs   = [NameType,TgtName],
+  DaemonArgs = ["-detached","-noshell","-mode","interactive"],
+  StartArgs  = ["-s","erlctl","start",atom_to_list(node())],
+  Args = NameArgs ++ DaemonArgs ++ StartArgs,
+  Path = case os:find_executable("erl") of
     false ->
       cannot_start_vm("cannot find executable",[]);
     FoundPath ->
       FoundPath
   end,
-  NameArgs = [NameType,TgtName],
-  DaemonArgs = ["-detached","-noshell","-mode","interactive"],
-  StartArgs =  ["-s","erlctl","start",atom_to_list(node())],
-  ErlArgs = NameArgs ++ DaemonArgs ++ StartArgs,
-  Port = start_vm(ErlPath,ErlArgs),
+  Opts0 = [ {args,Args}, exit_status, hide ],
+  Port = try
+    open_port({spawn_executable,Path},Opts0)
+  catch
+    error:badarg ->
+      Spawn = lists:flatten( [ [X,$ ] || X <- [Path | Args]] ),
+      Opts1 = [ exit_status ],
+      open_port({spawn,Spawn},Opts1)
+  end,
   receive
     {Port,{exit_status,0}} ->
       started;
@@ -127,28 +139,13 @@ try_start(Module,Function,Args,Opts) ->
   end,
   receive
     {vm_started,TgtNode} ->
-      Node = TgtNode,
-      ok;
+      {ok,TgtNode};
     {vm_started,ActualNode} ->
-      Node = ActualNode,
-      io:format(standard_error,"Unexpected VM name ~p~n",[ActualNode])
+      io:format(standard_error,"Unexpected VM name ~p~n",[ActualNode]),
+      {ok,ActualNode}
     after ?STARTUP_DELAY ->
-      Node = undefined,
-      cannot_start_vm("timeout waiting for VM to start",[])
-  end,
-  Opts2 = [ {node,Node} | Opts ],
-  try_remote(start,Module,Function,Args,Opts2),
-  next.
-
-start_vm(Path,Args) ->
-  Opts0 = [ {args,Args}, exit_status, hide ],
-  try
-    open_port({spawn_executable,Path},Opts0)
-  catch
-    error:badarg ->
-      Spawn = lists:flatten( [ [X,$ ] || X <- [Path | Args]] ),
-      Opts1 = [ exit_status ],
-      open_port({spawn,Spawn},Opts1)
+      cannot_start_vm("timed out waiting for VM to start",[]),
+      {error,timeout} % never reached
   end.
 
 % Context Helpers
