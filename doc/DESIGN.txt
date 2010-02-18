@@ -70,14 +70,14 @@ The system options are:
 Application Interface
 =====================
 
-The erlctl application should be running in each node to be managed.  Your
-application must depend on erlctl or call erlctl:start/0 if it doesn't use
-the application system.  It should also call erlctl:register(appname) when it
-is ready to be managed at runtime (where appname is the same atom name as your
+The erlctl application should be running in each node to be managed. Your
+application must depend on erlctl or call erlctl:start/0 if it doesn't use the
+application system. It should also call erlctl:register(appname) when it is
+ready to be managed at runtime (where appname is the same atom name as your
 application is named).
 
-It should provide a module called appname_ctl.  This module should provide the
-interface functions to implement various actions.  All functions should expect
+It should provide a module called appname_ctl. This module should provide the
+interface functions to implement various actions. All functions should expect
 three arguments: Context, Config, and Args.
 
 When a command is executed, an Erlang node starts in the CLI command and there
@@ -86,44 +86,60 @@ may also be an Erlang node already running for that application.
 The correct command implementation function is executed based on the context
 and the system state. If you provide the correct commands, most use-cases
 should be manageable. For commands that should always just be executed in the
-CLI process, the 'none' context is provided. For commands that should be
+CLI process, the 'always' context is provided. For commands that should be
 executed in a running server context, the 'running' context is there. To
 provide fallback behavior for commands in the 'running' context, there is a
-'not_running' context. Finally, for the case where a node should be started,
-there is a 'start' context.
+'not_running' context. Finally, when a node is 'not_running', it can request
+to start a node, which will then execute the command in the 'started' context.
 
-The return value of command implementation functions is not examined, and
-returning without an exception is consider success. If they raise an
-exception, the command-line utility exits with a status of 254. If they are
-not found, certain fall-through behavior happens, as specified in the next
-section. If you wish to manipulate configuration data, do input or output, or
-exit with a status code, various mechanisms are provided, as detailed in the
-final section.
+The arguments are the remainder of the command line as split by your shell, as
+strings.
 
-The args are the rest of the command line as split by your shell, as strings.
+The return value of command implementation functions is examined as followed:
+
+ ok:                   if it hasn't exited, causes script to exit with success
+ skip:                  skips this clause, as if it hadn't been matched
+ {ok,Msg}:              same as ok with message
+ {ok,Fmt,Data}:         same as ok with formatted message of data
+ error:     if it hasn't exited, causes script to exit with failure (code 255)
+ {error,N}:             same as error, with error code N
+ {error,N,Msg}:         same as {error,N}, with message
+ {error,N,Fmt,Data}:    same as {error,N}, with formatted message of data
+ start:                 starts a VM
+ {start,Opts}:          same as start, with a list of VM options
+ {start,Opts,Msg}:      same as {start,Opts} with a message
+ {start,Opts,Msg,Data}: same as {start,Opts} with a formatted message of data
+ Anything Else:         like {error,254}, and a warning message is emitted
+
+If no clause matches for a certain context, this is considered the same as a
+return of 'skip'.  If an exception, error, or exit is triggered, it is
+considered an error, and an appropriate error response (with code 254 and a
+message indicating the exception).
 
 Context Selection
 =================
 
 The process for selecting Context has a fair bit of voodoo to achieve the
-behavior that I feel is useful.  Roughly, the following pseudo-code is
+behavior that I feel is useful. Roughly, the following pseudo-code is
 followed, and terminates as soon as an attempted command exists:
 
-try none:command(...)          [in CLI Node]
+always:command(...)            [in CLI Node]
 find_node                      [in CLI Node]
 if node is running:            [in CLI Node]
-  try running:command(...)     [in Target Node]
+  running:command(...)         [in Running Node]
 else:
-  try not_running:command(...) [in CLI Node]
-  try start:command(...)       [in Newly Started Node]
+  not_running:command(...)     [in CLI Node]
+  if a new VM is started:
+    started:command(...)       [in Newly Started Node]
 
-Essentially, 'none' commands override everything, then only 'running' commands
-when a node is running, OR 'not_running' in preference to 'start'.
+Essentially, 'always' commands override everything, then only 'running'
+commands when a node is running, OR 'not_running'. If requested 'started' is
+used in a newly started system.
 
 The idea is that the normal case is to either run commands with no context
-(usually utility commands) or commands in the server process.  Fallback
+(usually utility commands) or commands in the server process. Fallback
 behavior is provided by "not running" cases, with "start" commands as the last
-resort when no node is running.  This "start" behavior is designed to make it
+resort when no node is running. This "start" behavior is designed to make it
 difficult to accidentally start multiple copies of a server when you instead
 intend to have graceful startup for certain commands that are normally used
 when a server is running.
