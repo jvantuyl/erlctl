@@ -1,5 +1,5 @@
 -module (erlctl_net).
--export([start_networking/1]).
+-export([start_networking/1,ensure/2]).
 
 -include_lib("erlctl/include/internal.hrl").
 
@@ -17,6 +17,27 @@ start_networking(Opts) ->
   end,
   SvrNode = svr_nodename(Opts),
   {ok,[{target,SvrNode} | Opts]}.
+
+ensure(Intent,Opts) when is_atom(Intent),is_list(Opts) ->
+  Node = list_to_atom(proplists:get_value(target,Opts)),
+  ensure(Intent,Node);
+ensure(up,Node) when is_atom(Node) ->
+  ensure({pong,pang,up,down},Node);
+ensure(down,Node) when is_atom(Node) ->
+  ensure({pang,pong,down,up},Node);
+ensure({Good,Bad,Success,Failure},Node) when is_atom(Node) ->
+  ensure_loop(Good,Bad,Success,Failure,Node,30).
+
+ensure_loop(_Good,_Bad,_Success,Failure,_Node,0) ->
+  Failure;
+ensure_loop(Good,Bad,Success,Failure,Node,Tries) ->
+  case net_adm:ping(Node) of
+    Good ->
+      Success;
+    Bad ->
+      timer:sleep(100),
+      ensure_loop(Good,Bad,Success,Failure,Node,Tries - 1)
+  end.
 
 is_longname(Name) -> lists:member($.,Name).
 

@@ -1,8 +1,8 @@
 -module (erlctl_err).
--export([not_found/0,networking_failure/0,remote_error/1,cannot_start_vm/2,
-  halt_with_error/0]).
+-export([unknown_command/0,networking_failure/0,remote_error/1,
+  cannot_start_vm/2, halt_with_error/0]).
 
-not_found() ->
+unknown_command() ->
   io:format(standard_error,"unrecognized command~n",[]),
   halt(250).
 

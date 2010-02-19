@@ -6,57 +6,109 @@
 % Entry Point for Running Commands
 -spec( start() -> no_return() ).
 start() ->
+  ok = init(),
+  {ok,Opts} = erlctl_cmdline:process_cmdline(),
+  run_stage(Opts,always).
+
+run_stage(Opts0,Stage0) ->
   try
-    ok = init(),
-    {ok,Opts0,Module,Function,Args} = erlctl_cmdline:process_cmdline(),
-    try_command(none,        Module,Function,Args,Opts0),
-    {ok,Opts1} = erlctl_net:start_networking(Opts0),
-    try_command(running,     Module,Function,Args,Opts1),
-    try_command(not_running, Module,Function,Args,Opts1),
-    try_command(start,       Module,Function,Args,Opts1),
-    erlctl_err:not_found()
+    stage(Opts0,Stage0)
+  of
+    {ok,Opts1,Stage1} ->
+      run_stage(Opts1,Stage1);
+    wait ->
+      receive
+        never_comes -> never_exits
+      end;
+    _ ->
+      erlctl_err:halt_with_error() % FIXME: Better Error
   catch
-    A:B ->
-      ST = erlang:get_stacktrace(),
-      io:format(standard_error,"WAHHHH! ~p:~p~n  ~p~n",[A,B,ST]),
-      erlctl_err:halt_with_error()
-  end,
-  never_reached.
+    _A:_B ->
+      erlctl_err:halt_with_error() % FIXME: Better Error
+  end.
 
 init() ->
   % Clear Out Default Log Handlers
   lists:foreach(fun error_logger:delete_report_handler/1,
     gen_event:which_handlers(error_logger)),
   % Start Delegate
-  erlctl_remote:start_delegate(),
+  erlctl_proc:start_delegate(),
   ok.
 
-try_command(running,Module,Function,Args,Opts) ->
-  Node = list_to_atom(proplists:get_value(target,Opts)),
-  case erlctl_remote:remote_command(Node,running,Module,Function,Args,Opts) of
-    no_vm ->
-      next
-  end;
-try_command(start,Module,Function,Args,Opts0) ->
-  {ok,Node} = erlctl_vm:start_vm(Opts0),
-  Opts1 = [ {node,Node} | Opts0 ],
-  case erlctl_remote:remote_command(Node,start,Module,Function,Args,Opts1) of
-    no_vm ->
-      erlctl_err:cannot_start_vm("Unable to start command in new VM",[]);
-    exiting ->
-      timer:sleep(?STARTUP_DELAY), % Wait for exit message
-      erlctl:exit_with_code(0)
-  end;
-try_command(Ctx,Module,Function,Args,Opts) ->
-  local_command(Ctx,Module,Function,Args,Opts).
+get_mfa(Opts) ->
+  proplists:get_value(mfa,Opts).
 
-local_command(Ctx,Mod,Func,Args,_Opts) ->
-  try apply(Mod,Func,[Ctx,Args]) of
-    _ ->
-      erlctl:exit_with_code(0)
-  catch
-    error:function_clause ->
-      no_command;
-    error:undef ->
-      no_command
-  end.
+stage(Opts,Stage) ->
+  MFA = get_mfa(Opts),
+  Where = where(Opts,Stage),
+  Result = erlctl_proc:run(Where,Stage,MFA),
+  handle_result(Opts,Stage,Result).
+
+where(_Opts,always)      -> local;
+where(_Opts,not_running) -> local;
+where( Opts,running)     -> list_to_atom(proplists:get_value(target,Opts));
+where( Opts,started)     -> list_to_atom(proplists:get_value(target,Opts)).
+
+handle_result(Opts0,always,skip) ->
+  {ok,Opts1} = erlctl_net:start_networking(Opts0),
+  Node = list_to_atom(proplists:get_value(target,Opts1)),
+  case net_adm:ping(Node) of
+    pang ->
+      {ok,Opts1,not_running};
+    pong ->
+      {ok,Opts1,running}
+  end;
+
+handle_result(Opts,Stage,restart) ->
+  handle_result(Opts,Stage,{restart,[]});
+handle_result(Opts,Stage,{restart,SOpts}) ->
+  case erlctl_net:ensure(down,Opts) of
+    down ->
+      handle_result(Opts,Stage,{start,SOpts});
+    up ->
+      erlctl_err:cannot_start_vm("Timeout stopping server for restart",[])
+  end;
+handle_result(Opts,Stage,{restart,SOpts,Msg}) ->
+  handle_result(Opts,Stage,{restart,SOpts,Msg,[]});
+handle_result(Opts,Stage,{restart,SOpts,Msg,Data}) ->
+  erlctl:format(Msg,Data),
+  handle_result(Opts,Stage,{restart,SOpts});
+
+handle_result(Opts,Stage,start) ->
+  handle_result(Opts,Stage,{start,[]});
+handle_result(Opts,_Stage,{start,SOpts}) ->
+  {ok,Node} = erlctl_vm:start_vm(SOpts ++ Opts),
+  {ok,[{node,Node} | Opts],started};
+handle_result(Opts,Stage,{start,SOpts,Msg}) ->
+  handle_result(Opts,Stage,{start,SOpts,Msg,[]});
+handle_result(Opts,Stage,{start,SOpts,Msg,Data}) ->
+  erlctl:format(Msg,Data),
+  handle_result(Opts,Stage,{start,SOpts});
+handle_result(_Opts,_Stage,skip) ->
+  erlctl_err:unknown_command(),
+  wait;
+
+handle_result(_Opts,_Stage,ok) ->
+  erlctl:exit_with_code(0),
+  wait;
+handle_result(Opts,Stage,{ok,Msg}) ->
+  handle_result(Opts,Stage,{ok,Msg,[]});
+handle_result(Opts,Stage,{ok,Msg,Data}) ->
+  erlctl:format(Msg,Data),
+  handle_result(Opts,Stage,ok);
+
+handle_result(Opts,Stage,error) ->
+  handle_result(Opts,Stage,{error,255});
+handle_result(_Opts,_Stage,{error,N}) ->
+  erlctl:exit_with_code(N),
+  wait;
+handle_result(Opts,Stage,{error,N,Msg}) ->
+  handle_result(Opts,Stage,{error,N,Msg,[]});
+handle_result(Opts,Stage,{error,N,Msg,Data}) ->
+  erlctl:format(Msg,Data),
+  handle_result(Opts,Stage,{error,N});
+
+handle_result(Opts,Ctx,Other) ->
+  Msg = "Unexpected Return from Stage ~p:~n  ~p~n",
+  Data = [Ctx,Other],
+  handle_result(Opts,Ctx,{error,254,Msg,Data}).

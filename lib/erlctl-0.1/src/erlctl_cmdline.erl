@@ -29,10 +29,10 @@ process_cmdline() ->
     [App, Command | CArgs] ->
       AppName = App, Cmd = Command, Args2 = CArgs
   end,
-  Opts1 = [{app,AppName} | Opts0],
   Module = list_to_atom(AppName ++ "_cli"),
   Function = list_to_atom(Cmd),
-  {ok,Opts1,Module,Function,Args2}.
+  Opts1 = [{app,AppName},{mfa,{Module,Function,Args2}} | Opts0],
+  {ok,Opts1}.
 
 normalize("erlctl",Args) -> % Strip off "erlctl"
   Args;

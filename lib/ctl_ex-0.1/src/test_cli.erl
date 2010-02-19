@@ -2,17 +2,17 @@
 -include_lib("erlctl/include/erlctl.hrl").
 
 %% @doc Prints out the installed version of the ctl_ex server.
-version(none,[]) ->
+version(always,[]) ->
   {ok,"Version: ~p~n",[0.1]}.
 
 %% @doc Start the ctl_ex application.
 start(running,_) ->
   {error,1,"Already running.~n"};
 start(not_running,[]) ->
-  {start,"Starting.~n"};
+  {start,[],"Starting.~n"};
 start(started,[]) ->
   ok = application:start(ctl_ex),
-  erlctl:format("Started~n",[]),
+  erlctl:format("Started!~n",[]),
   ok.
 
 %% @doc Stop the ctl_ex application.
@@ -25,6 +25,15 @@ stop(running,[]) ->
   server_exit(),
   ok.
 
+%% @doc Restart the ctl_ex application
+restart(not_running,X) ->
+  start(not_running,X);
+restart(running,X) ->
+  stop(running,X),
+  {restart,[],"Restarting...~n"};
+restart(started,X) ->
+  start(started,X).
+
 %% @doc List the users.
 list_users(not_running,_) ->
   format("Not running.~n"),
@@ -32,12 +41,17 @@ list_users(not_running,_) ->
 list_users(running,[]) ->
   {ok,Users} = ctl_ex:list_users(),
   format("Users:~n"),
-  lists:foreach(
-    fun (User) ->
-      format("  ~s~n",[User])
-    end,
-    Users
-  ),
+  case Users of
+    [] ->
+      io:format("  <no users>~n");
+    _ ->
+      lists:foreach(
+        fun (User) ->
+          format("  ~s~n",[User])
+        end,
+        Users
+      )
+  end,
   ok.
 
 %% @doc Add a user.

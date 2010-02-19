@@ -109,7 +109,14 @@ The return value of command implementation functions is examined as followed:
  {start,Opts}:          same as start, with a list of VM options
  {start,Opts,Msg}:      same as {start,Opts} with a message
  {start,Opts,Msg,Data}: same as {start,Opts} with a formatted message of data
+ restart:               attempts to start after ensuring the node died
+ {restart,Opts}:        as restart, but attempts {start,Opts}
+ {restart,Opts,M}:      same as restart, but with a message
+ {restart,Opts,M,D}:    same as restart, but with a formatted message
  Anything Else:         like {error,254}, and a warning message is emitted
+
+NOTE: For restarts, the restart command stop the VM itself, just as a stop
+      command would (i.e. erlctl:server_exit/0).
 
 If no clause matches for a certain context, this is considered the same as a
 return of 'skip'.  If an exception, error, or exit is triggered, it is
