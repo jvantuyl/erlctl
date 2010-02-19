@@ -49,7 +49,7 @@ start_vm(Opts) ->
     {vm_started,TgtNode} ->
       {ok,TgtNode};
     {vm_started,ActualNode} ->
-      io:format(standard_error,"Unexpected VM name ~p~n",[ActualNode]),
+      erlctl_err:format("Unexpected VM name ~p~n",[ActualNode]),
       {ok,ActualNode}
     after ?STARTUP_DELAY ->
       erlctl_err:cannot_start_vm("timed out waiting for VM to start",[]),

@@ -11,11 +11,9 @@ process_cmdline() ->
     handle_sysargs(Args0,[])
   catch
     error:{sysarg,[BadArg | Rst0] } ->
-      io:format(standard_error,"bad system argument: ~p ~p~n",[BadArg, Rst0]),
-      erlctl_err:halt_with_error();
+      erlctl_err:bad_cmdline("bad system argument: ~p ~p",[BadArg, Rst0]);
     error:badmatch ->
-      io:format(standard_error,"error processing system arguments!~n",[]),
-      erlctl_err:halt_with_error()
+      erlctl_err:bad_cmdline("unknown problem processing arguments!",[])
   end,
   % Infer Usage From Name of Control Script and Args
   case normalize(RunName,Args1) of

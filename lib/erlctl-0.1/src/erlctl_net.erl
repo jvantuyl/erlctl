@@ -65,11 +65,11 @@ get_hostname(Opts) ->
   HostName = make_hostname(NmOpt,HnOpt),
   case {NmOpt,is_longname(HostName)} of
     {short,true} ->
-      io:format(standard_error,
+      erlctl_err:format(
         "Warning: using name with dot as a shortname (~p)~n",[HostName]),
         erlctl_err:networking_failure();
     {long,false} ->
-      io:format(standard_error,
+      erlctl_err:format(
         "Warning: using name without a dot as a longname (~p)~n",[HostName]),
         erlctl_err:networking_failure();
     _ ->
