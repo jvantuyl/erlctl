@@ -23,9 +23,14 @@ code_change(_OldVsn,OldState,_Extra) ->
 
 handle_call({add_user,User},_From,State) ->
   Users = State#ce_state.users,
-  NewUsers = sets:add_element(User,Users),
-  NewState = State#ce_state{users=NewUsers},
-  {reply,ok,NewState};
+  case sets:is_element(User,Users) of
+    true ->
+      {reply,user_exists,State};
+    false ->
+      NewUsers = sets:add_element(User,Users),
+      NewState = State#ce_state{users=NewUsers},
+      {reply,ok,NewState}
+  end;
 handle_call({del_user,User},_From,State) ->
   Users = State#ce_state.users,
   case sets:is_element(User,Users) of
