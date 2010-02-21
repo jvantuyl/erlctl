@@ -18,11 +18,10 @@ start_ack(StartedNode) ->
 
 exit_with_code(Code) ->
   erlctl_proc:send({halt,Code}),
-  timer:sleep(100), % to prevent the exit signal from beating the message
   ok.
 
 server_exit() ->
-  timer:apply_after(50,init,stop,[]).
+  timer:apply_after(250,init,stop,[]).
 
 format(Format) ->
   erlctl_proc:send({format,Format,[]}).
