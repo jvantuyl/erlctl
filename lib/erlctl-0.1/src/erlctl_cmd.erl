@@ -20,10 +20,12 @@ run_stage(Opts0,Stage0) ->
       receive
         never_comes -> never_exits
       end;
-    _ ->
+    X ->
+      io:format("~p",[X]),
       erlctl_err:halt_with_error() % FIXME: Better Error
   catch
-    _A:_B ->
+    A:B ->
+      io:format("EEK! ~p:~p",[A,B]),
       erlctl_err:halt_with_error() % FIXME: Better Error
   end.
 
@@ -49,8 +51,26 @@ where(_Opts,not_running) -> local;
 where( Opts,running)     -> list_to_atom(proplists:get_value(target,Opts));
 where( Opts,started)     -> list_to_atom(proplists:get_value(target,Opts)).
 
+safe_format(F,D) ->
+  case
+    erlctl:format(F ++ "~n", D)
+  of
+    ok ->
+      ok;
+    {error,{C,T}} ->
+      io:format(
+        "error formatting return message~n"
+        "  error_class=~p~n"
+        "  error_type=~p~n"
+        "  format=~p~n"
+        "  data=~p~n",
+        [C,T,F,D]
+      )
+  end.
+
 handle_result(Opts0,always,skip) ->
   {ok,Opts1} = erlctl_net:start_networking(Opts0),
+  erlctl:set_opts(Opts1),
   Node = list_to_atom(proplists:get_value(target,Opts1)),
   case net_adm:ping(Node) of
     pang ->
@@ -70,19 +90,23 @@ handle_result(Opts,Stage,{restart,SOpts}) ->
   end;
 handle_result(Opts,Stage,{restart,SOpts,Msg}) ->
   handle_result(Opts,Stage,{restart,SOpts,Msg,[]});
-handle_result(Opts,Stage,{restart,SOpts,Msg,Data}) ->
-  erlctl:format(Msg,Data),
+handle_result(Opts,Stage,{restart,SOpts,Msg,Data}) 
+    when is_list(Msg),is_list(Data) ->
+  safe_format(Msg,Data),
   handle_result(Opts,Stage,{restart,SOpts});
 
 handle_result(Opts,Stage,start) ->
   handle_result(Opts,Stage,{start,[]});
-handle_result(Opts,_Stage,{start,SOpts}) ->
-  {ok,Node} = erlctl_vm:start_vm(SOpts ++ Opts),
-  {ok,[{node,Node} | Opts],started};
-handle_result(Opts,Stage,{start,SOpts,Msg}) ->
+handle_result(Opts0,_Stage,{start,SOpts}) ->
+  {ok,Node} = erlctl_vm:start_vm(SOpts ++ Opts0),
+  Opts1 = [{node,Node} | Opts0],
+  erlctl:set_opts(Opts1),
+  {ok,Opts1,started};
+handle_result(Opts,Stage,{start,SOpts,Msg}) when is_list(Msg) ->
   handle_result(Opts,Stage,{start,SOpts,Msg,[]});
-handle_result(Opts,Stage,{start,SOpts,Msg,Data}) ->
-  erlctl:format(Msg,Data),
+handle_result(Opts,Stage,{start,SOpts,Msg,Data})
+    when is_list(Msg),is_list(Data) ->
+      safe_format(Msg,Data),
   handle_result(Opts,Stage,{start,SOpts});
 handle_result(_Opts,_Stage,skip) ->
   erlctl_err:unknown_command(),
@@ -91,10 +115,10 @@ handle_result(_Opts,_Stage,skip) ->
 handle_result(_Opts,_Stage,ok) ->
   erlctl:exit_with_code(0),
   wait;
-handle_result(Opts,Stage,{ok,Msg}) ->
+handle_result(Opts,Stage,{ok,Msg}) when is_list(Msg)->
   handle_result(Opts,Stage,{ok,Msg,[]});
-handle_result(Opts,Stage,{ok,Msg,Data}) ->
-  erlctl:format(Msg,Data),
+handle_result(Opts,Stage,{ok,Msg,Data}) when is_list(Msg),is_list(Data) ->
+  safe_format(Msg,Data),
   handle_result(Opts,Stage,ok);
 
 handle_result(Opts,Stage,error) ->
@@ -102,13 +126,15 @@ handle_result(Opts,Stage,error) ->
 handle_result(_Opts,_Stage,{error,N}) ->
   erlctl:exit_with_code(N),
   wait;
-handle_result(Opts,Stage,{error,N,Msg}) ->
+handle_result(Opts,Stage,{error,N,Msg}) when is_list(Msg) ->
   handle_result(Opts,Stage,{error,N,Msg,[]});
-handle_result(Opts,Stage,{error,N,Msg,Data}) ->
-  erlctl:format(Msg,Data),
+handle_result(Opts,Stage,{error,N,Msg,Data})
+    when is_list(Msg),is_list(Data) ->
+  safe_format(Msg,Data),
   handle_result(Opts,Stage,{error,N});
 
 handle_result(Opts,Ctx,Other) ->
   Msg = "Unexpected Return from Stage ~p:~n  ~p~n",
   Data = [Ctx,Other],
-  handle_result(Opts,Ctx,{error,254,Msg,Data}).
+  safe_format(Msg,Data),
+  handle_result(Opts,Ctx,{error,254}).

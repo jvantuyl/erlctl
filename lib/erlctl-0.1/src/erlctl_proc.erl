@@ -89,30 +89,44 @@ send(Msg) ->
   R = make_ref(),
   D ! {req,{self(),R},Msg},
   receive
-    {ack,R} ->
-      ok
+    {ack,R,X} ->
+      X
   end.
 
 % Used To Send Replies From Delegate
-ack({From,Seq}) ->
-  From ! {ack,Seq}.
+ack(Tag) ->
+  ack(Tag,ok).
+
+ack({From,Seq},X) ->
+  From ! {ack,Seq,X}.
 
 % Implemented the Delegate
 delegate() -> % First, Trap Exits
   process_flag(trap_exit,true),
-  delegate_loop().
+  delegate_loop([]).
 
-delegate_loop() -> % Then, loop over commands
+delegate_loop(Opts) -> % Then, loop over commands
   receive
     {req,Tag,Cmd} ->
       case Cmd of
+        get_opts ->
+          ack(Tag,Opts),
+          delegate_loop(Opts);
+        {set_opts,NewOpts} ->
+          ack(Tag),
+          delegate_loop(NewOpts);
         {format,Format,Data} ->
-          io:format(Format,Data),
-          ack(Tag);
+          try
+            io:format(Format,Data),
+            ack(Tag)
+          catch
+            C:T ->
+              ack(Tag,{error,{C,T}})
+          end,
+          delegate_loop(Opts);
         {halt,Code} ->
           halt(Code)
       end;
     {'EXIT',_,_} ->
       erlang:exit()
-  end,
-  delegate_loop().
+  end.

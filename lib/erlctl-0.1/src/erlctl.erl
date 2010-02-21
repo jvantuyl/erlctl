@@ -1,6 +1,7 @@
 -module (erlctl).
 -export([start/1,start_ack/1]).
 -export([format/1,format/2,exit_with_code/1,server_exit/0]).
+-export([get_opts/0,set_opts/1]).
 
 start([NotifyNode]) ->
   ok = application:start(sasl),
@@ -19,9 +20,13 @@ server_exit() ->
   timer:apply_after(50,init,stop,[]).
 
 format(Format) ->
-  erlctl_proc:send({format,Format,[]}),
-  ok.
+  erlctl_proc:send({format,Format,[]}).
 
 format(Format,Data) ->
-  erlctl_proc:send({format,Format,Data}),
-  ok.
+  erlctl_proc:send({format,Format,Data}).
+
+get_opts() ->
+  erlctl_proc:send(get_opts).
+
+set_opts(Opts) ->
+  erlctl_proc:send({set_opts,Opts}).

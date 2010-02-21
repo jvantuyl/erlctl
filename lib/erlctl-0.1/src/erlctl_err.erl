@@ -4,11 +4,18 @@
   cannot_start_vm/2, halt_with_error/0, bad_cmdline/2]).
 
 bad_cmdline(Msg,Data) ->
-  format("error processing command line: " ++ Msg ++ "~n",Data),
+  Opts = erlctl:get_opts(),
+  CmdLine = proplists:get_value(cmdline,Opts),
+  format("error processing command line: ~p~n  " ++ Msg ++ "~n",
+    [CmdLine | Data]),
   halt(249).
 
 unknown_command() ->
-  format("unrecognized command~n",[]),
+  Opts = erlctl:get_opts(),
+  App = proplists:get_value(app,Opts),
+  Cmd = proplists:get_value(command,Opts),
+  format("command ~s not recognized (for application ~s)~n",[Cmd,App]),
+  format("  try command \"help\" for instructions~n"),
   halt(250).
 
 networking_failure() ->
@@ -20,7 +27,7 @@ remote_error(Data) ->
   halt(252).
 
 cannot_start_vm(Msg,Data) ->
-  format("Error starting 'erl': " ++ Msg ++ "~n",Data),
+  format("Error starting new Erlang node: " ++ Msg ++ "~n",Data),
   halt(253).
 
 halt_with_error() ->

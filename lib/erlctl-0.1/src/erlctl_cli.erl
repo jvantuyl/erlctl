@@ -1,6 +1,6 @@
 -module (erlctl_cli).
--export([usage/2]).
+-export([help/2]).
 
-usage(none,[]) ->
+help(always,[]) ->
   erlctl:format("Usage: erlctl <app> [<command> ...]~n"),
   erlctl:exit_with_code(1).

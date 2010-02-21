@@ -3,34 +3,51 @@
 
 % Command Line Handling Functions
 process_cmdline() ->
+  try
+    do_process_cmdline()
+  catch
+    error:{sysarg,[BadArg | _Rest] } ->
+      erlctl_err:bad_cmdline("bad system argument: ~p",[BadArg]);
+    C:T ->
+      erlctl_err:bad_cmdline("unknown problem (~p:~p) processing arguments!",
+        [C,T])
+  end.
+
+do_process_cmdline() ->
   % Get Script Name and Args
   [ScriptName | Args0] = init:get_plain_arguments(),
   RunName = filename:basename(ScriptName),
+  CmdLine = [ RunName | Args0],
+  Opts0 = [ {cmdline,CmdLine}, {script,RunName} ],
+  erlctl:set_opts(Opts0),
   % Process Options and Arguments
-  {ok,Opts0,Args1} = try
-    handle_sysargs(Args0,[])
-  catch
-    error:{sysarg,[BadArg | Rst0] } ->
-      erlctl_err:bad_cmdline("bad system argument: ~p ~p",[BadArg, Rst0]);
-    error:badmatch ->
-      erlctl_err:bad_cmdline("unknown problem processing arguments!",[])
-  end,
+  {ok,Opts1,Args1} = handle_sysargs(Args0,Opts0),
+  erlctl:set_opts(Opts1),
   % Infer Usage From Name of Control Script and Args
-  case normalize(RunName,Args1) of
-    % "erlctl", show generic usage
-    [] ->
-      AppName = "erlctl", Cmd = "usage", Args2 = [];
-    % "erlctl <app>" or "<app>ctl", show app usage
-    [App] ->
-      AppName = App, Cmd = "usage", Args2 = [];
-    % "erlctl <app> <cmd> ..." or "<app>ctl <cmd> ...", run command
-    [App, Command | CArgs] ->
-      AppName = App, Cmd = Command, Args2 = CArgs
-  end,
+  {ok,AppName,Cmd,Args2} = handle_cmd(RunName,Args1),
   Module = list_to_atom(AppName ++ "_cli"),
   Function = list_to_atom(Cmd),
-  Opts1 = [{app,AppName},{mfa,{Module,Function,Args2}} | Opts0],
-  {ok,Opts1}.
+  Opts2 = [
+    {app,AppName},
+    {command,Cmd},
+    {mfa,{Module,Function,Args2}}
+    | Opts1
+  ],
+  erlctl:set_opts(Opts2),
+  {ok,Opts2}.
+
+handle_cmd(RunName,Args) ->
+  case normalize(RunName,Args) of
+    % "erlctl", show generic usage
+    [] ->
+      {ok,"erlctl","help",[]};
+    % "erlctl <app>" or "<app>ctl", show app usage
+    [App] ->
+      {ok,App,"help",[]};
+    % "erlctl <app> <cmd> ..." or "<app>ctl <cmd> ...", run command
+    [App, Command | CArgs] ->
+      {ok,App,Command,CArgs}
+  end.
 
 normalize("erlctl",Args) -> % Strip off "erlctl"
   Args;
