@@ -1,3 +1,8 @@
+% Copyright 2010, Scatterbit, Inc. & Jayson Vantuyl <jvantuyl@scatterbit.com>
+%
+% This file is part of erlctl.
+%
+% Erlctl is open source.  See LICENSE.txt for details.
 -module (erlctl).
 -export([start/1,start_ack/1]).
 -export([format/1,format/2,exit_with_code/1,server_exit/0]).

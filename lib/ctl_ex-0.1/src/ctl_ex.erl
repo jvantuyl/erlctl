@@ -1,3 +1,8 @@
+% Copyright 2010, Scatterbit, Inc. & Jayson Vantuyl <jvantuyl@scatterbit.com>
+%
+% This file is part of erlctl.
+%
+% Erlctl is open source.  See LICENSE.txt for details.
 -module(ctl_ex).
 -behavior(gen_server).
 -export([start_link/0,add_user/1,del_user/1,list_users/0]).
