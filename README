@@ -5,8 +5,3 @@ A framework for putting a sane and uniform command-line-interface on an
 Erlang application.
 
 See doc/DESIGN.txt for more details.
-
-Dependencies
-------------
-
-Need at least Erlang OTP release R13B (specifically, ERTS 5.7.3)
