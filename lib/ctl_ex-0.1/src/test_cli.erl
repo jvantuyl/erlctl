@@ -16,13 +16,13 @@ usage() ->
     {"  ~s <command> ...",[Script]},
      "",
      "Commands:",
-    {"  start:            start the ~s daemon",[App]},
-    {"  stop:             stop the ~s daemon",[App]},
-    {"  restart:          restart the ~s daemon",[App]},
-     "  version:          display version information",
-     "  list_users:       lists users",
-     "  add_user <user>:  adds a user",
-     "  del_user <user>:  deletes a user"
+    {"  start             start the ~s daemon",[App]},
+    {"  stop              stop the ~s daemon",[App]},
+    {"  restart           restart the ~s daemon",[App]},
+     "  version [remote]  display version info (remote runs in server)",
+     "  list_users        lists users",
+     "  add_user <user>   adds a user",
+     "  del_user <user>   deletes a user"
   ].
 
 %% @doc Prints out help for the ctl_ex application
@@ -39,8 +39,12 @@ help(always,[]) ->
   ok.
 
 %% @doc Prints out the installed version of the ctl_ex server.
+version(not_running,["remote"]) ->
+  {error,1,"Not running."};
+version(running,["remote"]) ->
+  {ok,"Version: ~p (~s) @ ~p",[0.1,erlang:system_info(otp_release),node()]};
 version(always,[]) ->
-  {ok,"Version: ~p",[0.1]}.
+  {ok,"Version: ~p (~s) @ ~p",[0.1,erlang:system_info(otp_release),node()]}.
 
 %% @doc Start the ctl_ex application.
 start(running,_) ->
