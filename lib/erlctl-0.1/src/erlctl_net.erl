@@ -17,8 +17,8 @@ start_networking(Opts) ->
   case net_kernel:start([CN,Names]) of
     {ok,_} ->
       ok;
-    {error,_} ->
-      erlctl_err:networking_failure()
+    {error,Error} ->
+      erlctl_err:networking_failure(Error)
   end,
   SvrNode = svr_nodename(Opts),
   {ok,[{target,SvrNode} | Opts]}.
@@ -72,11 +72,11 @@ get_hostname(Opts) ->
     {short,true} ->
       erlctl_err:format(
         "Warning: using name with dot as a shortname (~p)~n",[HostName]),
-        erlctl_err:networking_failure();
+        erlctl_err:networking_failure(mixed_names);
     {long,false} ->
       erlctl_err:format(
         "Warning: using name without a dot as a longname (~p)~n",[HostName]),
-        erlctl_err:networking_failure();
+        erlctl_err:networking_failure(mixed_names);
     _ ->
       ok
   end,
