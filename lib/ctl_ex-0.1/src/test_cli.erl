@@ -20,7 +20,7 @@ usage() ->
     {"  stop:             stop the ~s daemon",[App]},
     {"  restart:          restart the ~s daemon",[App]},
      "  version:          display version information",
-     "  lists_users:      lists users",
+     "  list_users:       lists users",
      "  add_user <user>:  adds a user",
      "  del_user <user>:  deletes a user"
   ].
