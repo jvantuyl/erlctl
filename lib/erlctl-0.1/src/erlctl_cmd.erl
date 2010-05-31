@@ -30,7 +30,7 @@ run_stage(Opts0,Stage0) ->
       erlctl_err:halt_with_error() % FIXME: Better Error
   catch
     A:B ->
-      io:format("EEK! ~p:~p",[A,B]),
+      io:format("EEK! ~p:~p~n",[A,B]),
       erlctl_err:halt_with_error() % FIXME: Better Error
   end.
 
