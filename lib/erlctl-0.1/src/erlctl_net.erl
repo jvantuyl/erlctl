@@ -9,6 +9,7 @@
 -include_lib("erlctl/include/internal.hrl").
 
 start_networking(Opts) ->
+  start_epmd(),
   case proplists:get_value(names,Opts,?DEF_NAMES) of
     long -> Names = longnames;
     short -> Names = shortnames
@@ -22,6 +23,24 @@ start_networking(Opts) ->
   end,
   SvrNode = svr_nodename(Opts),
   {ok,[{target,SvrNode} | Opts]}.
+
+start_epmd() ->
+  start_epmd(0).
+
+start_epmd(N) ->
+  case {N,erl_epmd:names()} of % FIXME: undocumented function call
+    {_,{ok,_}} -> % EPMD running
+      started;
+    {N,_} when N >= ?EPMD_TRIES -> % checked too many times, error
+      erlctl_err:networking_failure("EPMD failed to start!");
+    {0,_} -> % first time, try to start EPMD if it wasn't running
+      os:cmd(os:find_executable("epmd") ++ " -daemon"),
+      timer:sleep(?EPMD_CHECK_DELAY),
+      start_epmd(1);
+    {N,_} -> % wait another cycle
+      timer:sleep(?EPMD_CHECK_DELAY),
+      start_epmd(N+1)
+  end.
 
 ensure(Intent,Opts) when is_atom(Intent),is_list(Opts) ->
   Node = list_to_atom(proplists:get_value(target,Opts)),
