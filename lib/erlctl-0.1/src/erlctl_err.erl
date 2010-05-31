@@ -6,7 +6,11 @@
 -module (erlctl_err).
 -export([format/1,format/2]).
 -export([unknown_command/0,networking_failure/1,remote_error/1,
-  cannot_start_vm/2, halt_with_error/0, bad_cmdline/2]).
+  cannot_start_vm/2, halt_with_error/0, bad_cmdline/2, app_not_installed/1]).
+
+app_not_installed(App) ->
+  format("application '~s' is not installed!~n",[App]),
+  halt(250).
 
 bad_cmdline(Msg,Data) ->
   Opts = erlctl:get_opts(),

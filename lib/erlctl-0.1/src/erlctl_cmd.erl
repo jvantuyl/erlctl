@@ -13,7 +13,18 @@
 start() ->
   ok = init(),
   {ok,Opts} = erlctl_cmdline:process_cmdline(),
+  verify_module(Opts),
   run_stage(Opts,always).
+
+verify_module(Opts) ->
+  {M,_,_} = get_mfa(Opts),
+  case code:which(M) of
+    non_existing ->
+      App = proplists:get_value(app,Opts),
+      erlctl_err:app_not_installed(App);
+    _ ->
+      ok
+  end.
 
 run_stage(Opts0,Stage0) ->
   try

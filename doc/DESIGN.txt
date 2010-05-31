@@ -78,7 +78,8 @@ application is named).
 
 It should provide a module called appname_ctl. This module should provide the
 interface functions to implement various actions. All functions should expect
-three arguments: Context, Config, and Args.
+three arguments: Context, Config, and Args.  NOTE: This module must be 
+available on the client system as well as the server system.
 
 When a command is executed, an Erlang node starts in the CLI command and there
 may also be an Erlang node already running for that application.
