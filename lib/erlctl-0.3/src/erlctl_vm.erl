@@ -34,6 +34,7 @@ start_vm(Opts) ->
   register(erlctl_cmd_runner,self()),
   % Open VM As Port
   Opts0 = [ {args,Args}, exit_status, hide ],
+  erlctl_err:info(Opts,"spawning ~p ~p~n",[Path,Args]),
   Port = try
     open_port({spawn_executable,Path},Opts0)
   catch
@@ -52,6 +53,7 @@ start_vm(Opts) ->
   % Wait for Node To Report In
   receive
     {vm_started,TgtNode} ->
+      erlctl_err:info(Opts,"remote node started as ~p~n",[TgtNode]),
       {ok,TgtNode};
     {vm_started,ActualNode} ->
       erlctl_err:format("Unexpected VM name ~p~n",[ActualNode]),
