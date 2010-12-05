@@ -27,6 +27,7 @@ verify_module(Opts) ->
   end.
 
 run_stage(Opts0,Stage0) ->
+  erlctl_err:info(Opts0,"Running Stage ~p~n",[Stage0]),
   try
     stage(Opts0,Stage0)
   of
@@ -59,6 +60,7 @@ get_mfa(Opts) ->
 stage(Opts,Stage) ->
   MFA = get_mfa(Opts),
   Where = where(Opts,Stage),
+  erlctl_err:info(Opts,"running stage ~p on ~p as ~p~n",[Stage,Where,MFA]),
   Result = erlctl_proc:run(Where,Stage,MFA),
   handle_result(Opts,Stage,Result).
 
@@ -114,6 +116,7 @@ handle_result(Opts,Stage,{restart,SOpts,Msg,Data})
 handle_result(Opts,Stage,start) ->
   handle_result(Opts,Stage,{start,[]});
 handle_result(Opts0,_Stage,{start,SOpts}) ->
+  erlctl_err:info(Opts0,"Starting VM with options ~p~n",[SOpts ++ Opts0]),
   {ok,Node} = erlctl_vm:start_vm(SOpts ++ Opts0),
   Opts1 = [{node,Node} | Opts0],
   erlctl:set_opts(Opts1),
