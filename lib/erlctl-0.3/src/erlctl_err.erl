@@ -4,7 +4,7 @@
 %
 % Erlctl is open source.  See LICENSE.txt for details.
 -module (erlctl_err).
--export([format/1,format/2]).
+-export([format/1,format/2,info/2,info/3]).
 -export([unknown_command/0,networking_failure/1,remote_error/1,
   cannot_start_vm/2, halt_with_error/0, bad_cmdline/2, app_not_installed/1]).
 
@@ -52,4 +52,16 @@ format(M,D) ->
   catch
     _:_ ->
       io:format(M,D)
+  end.
+
+info(Opts,M) ->
+    info(Opts,M,[]).
+
+info(Opts,M,D) ->
+  case proplists:get_bool(verbose,Opts) of
+    true ->
+      format(M,D),
+      emitted;
+    false ->
+      suppressed
   end.
