@@ -49,6 +49,7 @@ master(Parent,Delegate,Where,{Module,Function,Args}) ->
 % This middleman runs where the command runs, it sets up the environment for
 % the actual command and catches any exceptions
 blaster(Master,Delegate,{M,F,A}) ->
+  process_flag(trap_exit,true),
   set_delegate(Delegate),
   Master ! try
     apply(M,F,A)
