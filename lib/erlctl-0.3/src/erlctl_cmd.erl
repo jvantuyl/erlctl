@@ -108,7 +108,7 @@ handle_result(Opts,Stage,{restart,SOpts}) ->
   end;
 handle_result(Opts,Stage,{restart,SOpts,Msg}) ->
   handle_result(Opts,Stage,{restart,SOpts,Msg,[]});
-handle_result(Opts,Stage,{restart,SOpts,Msg,Data}) 
+handle_result(Opts,Stage,{restart,SOpts,Msg,Data})
     when is_list(Msg),is_list(Data) ->
   safe_format(Msg,Data),
   handle_result(Opts,Stage,{restart,SOpts});
