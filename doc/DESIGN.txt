@@ -49,6 +49,9 @@ the usage becomes:
 
 The system options are:
 
+  -v
+    Provides information messages from the internals of erlctl.
+    This is mostly useful for debugging broken networking configurations.
   -h <host name of machine>
     Specifies which Erlang hostname should be used.
     Default determined using inet:gethostname/0.
