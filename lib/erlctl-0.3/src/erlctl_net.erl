@@ -106,7 +106,7 @@ get_hostname(Opts) ->
 
 cli_nodename(Opts) ->
   AppName = proplists:get_value(app,Opts),
-  list_to_atom(AppName ++ "ctl_" ++ os:getpid()).
+  list_to_atom(AppName ++ "ctl_" ++ os:getpid() ++ "@" ++get_hostname(Opts)).
 
 svr_nodename(Opts) ->
   case proplists:get_value(fullnode,Opts) of
