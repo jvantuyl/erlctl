@@ -71,6 +71,8 @@ normalize(Name,Args) -> % Convert "<app>_?ctl" into "<app>"
   end.
 
 % System Arguments
+handle_sysargs(["-v" | Rest ], Opts) ->
+  handle_sysargs(Rest,[verbose | Opts]);
 handle_sysargs(["-h",HostName | Rest ], Opts) ->
   handle_sysargs(Rest,[{host,HostName}   | Opts]);
 handle_sysargs(["-l"          | Rest ], Opts) ->
