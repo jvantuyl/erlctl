@@ -9,18 +9,21 @@
 -include_lib("erlctl/include/internal.hrl").
 
 start_networking(Opts) ->
+  erlctl_err:info(Opts,"starting epmd~n"),
   start_epmd(),
   case proplists:get_value(names,Opts,?DEF_NAMES) of
     long -> Names = longnames;
     short -> Names = shortnames
   end,
   CN = cli_nodename(Opts),
+  erlctl_err:info(Opts,"using ~p with name ~p~n",[Names,CN]),
   case net_kernel:start([CN,Names]) of
     {ok,_} ->
       ok;
     {error,Error} ->
       erlctl_err:networking_failure(Error)
   end,
+  erlctl_err:info(Opts,"started as ~p~n",[node()]),
   SvrNode = svr_nodename(Opts),
   {ok,[{target,SvrNode} | Opts]}.
 
